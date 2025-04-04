@@ -1,10 +1,29 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
+import { Stomp } from '@stomp/stompjs';
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [loadMessage, setLoadMessages] = useState(false);
+  const [loader, setLoader] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const client = useMemo(()=>{
+    return Stomp.client("ws://localhost:8080/ws")
+  }, []);
+
+  useEffect(()=>{
+    setLoader(true);
+    client.connect({}, ()=>{
+      client.subscribe('/getMessages', (e)=>{
+        console.log('Recieve Message', e.body)
+        setMessages(JSON.parse(e.body))
+      });
+      client.subscribe('/updateMessages', (e)=>{
+        console.log('Update Message', e.body)
+      });
+    })
+  }, [client, loadMessage, setMessages, setLoader]);
 
   return (
     <>
@@ -18,16 +37,16 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+        <button onClick={() => client.send('/requestMessages', {}, "{}")}>
         </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+        <ul>
+          {messages.map((message, index)=>(<li key={`${message._id.timestamp}-${index}`}>
+            <p>{message.sender}</p>
+            <p>{message.dest}</p>
+            <p>{message.content}</p>
+          </li>))}
+        </ul>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
   )
 }

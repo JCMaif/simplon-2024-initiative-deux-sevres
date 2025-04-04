@@ -5,8 +5,12 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import org.bson.BSONObject;
 import org.bson.BsonValue;
 import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
@@ -19,9 +23,13 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.FullDocument;
 import com.mongodb.client.result.InsertOneResult;
+import com.mongodb.internal.operation.ChangeStreamOperation;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -49,24 +57,23 @@ public class MongoService {
                 .getInsertedId();
     }
 
-    public Iterable<Object> getMessagesForConversation(String user1, String user2) {
+    public MongoIterable<Document> getMessagesForConversation(String user1, String user2) {
         return messageCollection.aggregate(Arrays.asList(
-                new Document("$match",
-                        new Document("sender", 
-                            new Document("$in", Arrays.asList(user1, user2)))
-                        .append("dest", 
-                            new Document("$in", Arrays.asList(user1, user2)))
-                ))).map(Document::toJson);
+            Aggregates.match(
+                Filters.and(
+                        Filters.in("sender", user1, user2),
+                        Filters.in("dest", user1, user2)))))
+                .map(v -> v);
     }
 
     public ChangeStreamIterable<Document> listenForNewMessages(String user1, String user2) {
-        return messageCollection.watch(Arrays.asList(
-            new Document("$match",
-                new Document("sender", 
-                    new Document("$in", Arrays.asList(user1, user2)))
-                .append("dest", 
-                    new Document("$in", Arrays.asList(user1, user2)))
-        )));
+         return messageCollection
+                .watch(Arrays.asList(
+                        Aggregates.match(
+                            Filters.and(
+                                Filters.in("fullDocument.sender", user1, user2),
+                                Filters.in("fullDocument.dest", user1, user2)))))
+                .fullDocument(FullDocument.UPDATE_LOOKUP);
     }
 
 }

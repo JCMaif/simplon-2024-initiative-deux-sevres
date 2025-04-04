@@ -1,13 +1,29 @@
 package com.initiative79.ttm.controller;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.bson.BSONObject;
 import org.bson.Document;
+import org.bson.codecs.BsonValueCodecProvider;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.conversions.Bson;
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.initiative79.models.Message;
 import com.initiative79.ttm.services.MongoService;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import com.mongodb.client.model.changestream.FullDocument;
+
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import lombok.extern.slf4j.Slf4j;
@@ -28,10 +44,31 @@ public class MessageController {
     public void openMessagePage() {
         var messages = mongoService.getMessagesForConversation("1", "2");
         template.convertAndSend("/getMessages", messages);
-
-        mongoService.listenForNewMessages("1", "2").forEach((event) -> {
-            template.convertAndSend("/getMessages", event.getFullDocument().toJson());
-        });
+        
+        mongoService.listenForNewMessages("1", "2")
+            .forEach(doc -> {
+                switch (doc.getOperationType()) {
+                    case INSERT:
+                        template.convertAndSend("/newMessage", doc.getFullDocument().toJson());
+                        break;
+                    case DELETE:
+                        template.convertAndSend("/deleteMessage", doc.getDocumentKey().get("_id").asObjectId().getValue());
+                        break;
+                    case UPDATE:
+                        template.convertAndSend("/updateMessage", doc.getUpdateDescription().getUpdatedFields().toJson());
+                        break;
+                    case REPLACE:
+                        template.convertAndSend("/updateMessage", doc.getFullDocument().toJson());
+                        break;
+                    case DROP:
+                    case DROP_DATABASE:
+                    case INVALIDATE:
+                    case OTHER:
+                    case RENAME:
+                    default:
+                        log.warn("Not yet implemented OperationType: {}", doc.getOperationType());
+                }
+            });
     }
 
     @MessageMapping("/send")
