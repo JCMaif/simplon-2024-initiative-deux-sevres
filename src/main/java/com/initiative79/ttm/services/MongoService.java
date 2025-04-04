@@ -10,6 +10,7 @@ import org.bson.BsonValue;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,10 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class MongoService {
+    @Value("${mongo.url}")
+    private String mongoUrl;
+    @Value("${mongo.db}")
+    private String mongoDb;
     private MongoClient client;
     private MongoDatabase db;
     private MongoCollection<Document> messageCollection;
@@ -44,8 +49,8 @@ public class MongoService {
     @PostConstruct
     void init() throws IOException {
         log.info("start");
-        client = MongoClients.create("mongodb://localhost:27017/?replicaSet=rs0");
-        db = client.getDatabase("ttm");
+        client = MongoClients.create(mongoUrl);
+        db = client.getDatabase(mongoDb);
         messageCollection = db.getCollection("messages");
     }
 

@@ -60,11 +60,6 @@ public class MessageController {
                     case REPLACE:
                         template.convertAndSend("/updateMessage", doc.getFullDocument().toJson());
                         break;
-                    case DROP:
-                    case DROP_DATABASE:
-                    case INVALIDATE:
-                    case OTHER:
-                    case RENAME:
                     default:
                         log.warn("Not yet implemented OperationType: {}", doc.getOperationType());
                 }
