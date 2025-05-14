@@ -1,0 +1,13 @@
+spring:
+    application:
+        name: ttm
+    datasource:
+        url: jdbc:postgresql://localhost:5432/ttm
+        username:  ttm
+        password:  ttm
+    jpa:
+        database: postgresql
+
+mongo:
+    url: mongodb://localhost:27017/?replicaSet=rs0
+    db: ttm
